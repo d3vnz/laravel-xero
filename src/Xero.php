@@ -370,8 +370,17 @@ class Xero
                 'headers' => $response->getHeaders(),
             ];
         } catch (RequestException $e) {
-            $response = json_decode($e->response->body());
-            throw new Exception($response->Detail ?? "Type: $response?->Type Message: $response?->Message Error Number: $response?->ErrorNumber");
+            $body = $e->response?->body() ?? '';
+            $status = $e->response?->status() ?? 0;
+            $response = json_decode($body);
+            if (isset($response->Detail)) {
+                $msg = $response->Detail;
+            } elseif (isset($response->Type) || isset($response->Message)) {
+                $msg = "Type: {$response->Type} Message: {$response->Message} Error Number: {$response->ErrorNumber}";
+            } else {
+                $msg = "HTTP {$status} {$type} {$request}: " . ($body !== '' ? $body : '(empty response body)');
+            }
+            throw new Exception($msg);
         } catch (Exception $e) {
             throw new Exception($e->getMessage());
         }
