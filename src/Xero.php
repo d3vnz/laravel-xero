@@ -358,7 +358,20 @@ class Xero
         }
 
         try {
-            $response = Http::retry([200, 500, 1000], fn ($exception) => $exception instanceof ConnectionException || ($exception instanceof RequestException && $exception->response->serverError()))
+            $response = Http::retry([200, 500, 1000, 2000, 5000], function ($exception, $request) {
+                    if ($exception instanceof ConnectionException) {
+                        return true;
+                    }
+                    if ($exception instanceof RequestException) {
+                        if ($exception->response->status() === 429) {
+                            $retryAfter = (int) ($exception->response->header('Retry-After') ?: 5);
+                            sleep($retryAfter);
+                            return true;
+                        }
+                        return $exception->response->serverError();
+                    }
+                    return false;
+                })
                 ->withToken($this->getAccessToken())
                 ->withHeaders(array_merge(['Xero-tenant-id' => $this->getTenantId()], $headers))
                 ->accept($accept)
