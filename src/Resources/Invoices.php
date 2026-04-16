@@ -66,7 +66,14 @@ class Invoices extends Xero
     {
         $result = parent::post('Invoices', $data);
 
-        return $result['body']['Invoices'][0];
+        $invoice = $result['body']['Invoices'][0];
+
+        if (! empty($invoice['HasErrors']) && ! empty($invoice['ValidationErrors'])) {
+            $messages = array_map(fn ($e) => $e['Message'] ?? 'Unknown error', $invoice['ValidationErrors']);
+            throw new Exception('Xero validation error: ' . implode('; ', $messages));
+        }
+
+        return $invoice;
     }
 
     public function attachments(string $invoiceId): array
@@ -153,8 +160,10 @@ class Invoices extends Xero
             }
 
             // For other errors, throw exception as usual
-            $response = json_decode($e->response->body());
-            throw new Exception($response->Detail ?? "Type: $response?->Type Message: $response?->Message Error Number: $response?->ErrorNumber");
+            $body = $e->response->body();
+            $response = json_decode($body);
+            $msg = $response->Detail ?? $response->Message ?? "HTTP {$e->response->status()}: {$body}";
+            throw new Exception($msg);
         } catch (Exception $e) {
             throw new Exception($e->getMessage());
         }

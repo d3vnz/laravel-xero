@@ -388,6 +388,18 @@ class Xero
             $response = json_decode($body);
             if (isset($response->Detail)) {
                 $msg = $response->Detail;
+            } elseif (isset($response->Elements)) {
+                $validationErrors = [];
+                foreach ($response->Elements as $element) {
+                    if (! empty($element->ValidationErrors)) {
+                        foreach ($element->ValidationErrors as $error) {
+                            $validationErrors[] = $error->Message ?? 'Unknown validation error';
+                        }
+                    }
+                }
+                $msg = $validationErrors !== []
+                    ? implode('; ', $validationErrors)
+                    : "Type: {$response->Type} Message: {$response->Message} Error Number: {$response->ErrorNumber}";
             } elseif (isset($response->Type) || isset($response->Message)) {
                 $msg = "Type: {$response->Type} Message: {$response->Message} Error Number: {$response->ErrorNumber}";
             } else {
